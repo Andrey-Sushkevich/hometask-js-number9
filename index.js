@@ -1,17 +1,17 @@
 let container = document.createElement("div");
 let header = document.createElement("h1");
+document.body.classList.add("container");
+let localTodos = localStorage.getItem("todos");
+let todos = JSON.parse(localTodos) || [];
 
-document.body.style.background = "white";
-setTimeout(() => document.body.style.background = "red", 5000);
-setTimeout(() => document.body.style.background = "white", 10000);
-/*
-второй вариант
-document.body.classList=("body");
 setInterval(() => {
-  document.body.classList.toggle('body-active');
- }, 5000);
-*/
-//нужно сделать, чтобы background у body менялся через 5 секунд
+  if (document.body.classList.contains("second-container")) {
+    document.body.classList.remove("second-container");
+    return;
+  }
+
+  document.body.classList.add("second-container");
+}, 5000);
 
 header.append("TODO LIST/tms edition");
 container.append(header);
@@ -24,49 +24,171 @@ input.type = "text";
 
 const inputButton = document.createElement("button");
 inputButton.append("Add");
-//дописать onclick, чтобы если меньше чем 2, то ничего не делать и вывести alert c ошибка
-//по нажатию на кнопку будет меняться ее цвет
+
 inputButton.onclick = function () {
-  if (input.value.length > 2) {
-  addToList(input.value);
-  input.value = "";
-  inputButton.classList= ("button-active");
+  if (input.value.trim().length > 2) {
+    addToList(input.value);
+    input.value = "";
+    inputButton.setAttribute("class", "button-active");
+
+    setTimeout(() => {
+      inputButton.classList.remove("button-active");
+    }, 1000);
   } else {
-    alert('Error');
+    alert("Введите больше чем 2 символа");
   }
 };
-
 
 let ol = document.createElement("ol");
 
 function addToList(text) {
-  let li = document.createElement("li");
+  let id = "_" + Math.random().toString(36).substr(2, 9);
+  let obj = { text, id, done: false };
+  todos.push(obj);
 
-  let removeButton = document.createElement("button");
-  removeButton.append("Remove");
-  
+  localStorage.setItem("todos", JSON.stringify(todos));
 
-  let doneButton = document.createElement("button");
-  doneButton.append("Done");
-  
-
-  let p = document.createElement("p");
-  p.append(text);
-
-  //заменить cssText на классы
-  p.classList = ("p-class");
-
-
-  let liContainer = document.createElement("div");
-
-  liContainer.classList = ("container");
-  liContainer.append(doneButton, p, removeButton);
-  li.append(liContainer);
-
-  ol.append(li);
+  renderListItem(obj);
 }
 
 inputContaner.append(input, inputButton);
 header.after(inputContaner);
 inputContaner.after(ol);
 document.body.append(container);
+
+todos.forEach((elem) => {
+  renderListItem(elem);
+});
+
+function renderListItem(listItemObj) {
+  let { id, text, done } = listItemObj;
+
+  let li = document.createElement("li");
+
+  let p = document.createElement("p");
+  p.append(text);
+  p.className = "todo-text";
+
+  let removeButton = document.createElement("button");
+  removeButton.append("Remove");
+
+  removeButton.onclick = function () {
+    let filteredTodos = todos.filter((elem) => {
+      if (elem.id === id) {
+        return false;
+      }
+
+      return true;
+    });
+
+    todos = [...filteredTodos];
+    li.remove();
+    localStorage.setItem("todos", JSON.stringify(todos));
+  };
+
+  let doneButton = document.createElement("button");
+
+  if (done) {
+    doneButton.append("To Do");
+    p.classList.add("text-done");
+  } else {
+    doneButton.append("Done");
+  }
+
+  doneButton.onclick = (event) => {
+    event.stopPropagation();
+
+    if (p.matches(".text-done")) {
+      p.classList.remove("text-done");
+      doneButton.innerHTML = "Done";
+
+      todos.forEach((elem, index, arr) => {
+        if (elem.id === id) {
+          arr[index].done = false;
+        }
+      });
+    } else {
+      p.classList.add("text-done");
+      doneButton.innerHTML = "To Do";
+
+      todos.forEach((elem, index, arr) => {
+        if (elem.id === id) {
+          arr[index].done = true;
+        }
+      });
+    }
+
+    localStorage.setItem("todos", JSON.stringify(todos));
+    console.log(todos);
+  };
+
+  let liContainer = document.createElement("div");
+  liContainer.classList.add("wrapper");
+
+  liContainer.append(doneButton, p, removeButton);
+  li.append(liContainer);
+  li.id = id;
+  ol.append(li);
+}
+
+ol.addEventListener("click", (event) => {
+  let path = event.path;
+
+  let li = [...path].find((item) => item.localName === "li");
+
+  if (li) {
+    li.classList.toggle("li-active");
+  }
+});
+
+let doneAllButton = document.createElement("button");
+doneAllButton.append("Done All");
+
+doneAllButton.addEventListener("click", () => {
+  let allSelectedItems = document.querySelectorAll(".li-active");
+  let selectedItemsArr = [...allSelectedItems];
+
+  selectedItemsArr.forEach((item) => {
+    let currentIndex = todos.findIndex((todo) => todo.id === item.id);
+    todos[currentIndex].done = !todos[currentIndex].done;
+
+    item.classList.remove("li-active");
+
+    let p = item.querySelector("p");
+    p.classList.toggle("text-done");
+
+    let buttons = item.querySelectorAll("button");
+    let buttonsArr = [...buttons];
+
+    let doneButton = buttonsArr.find(
+      (item) => item.innerText === "Done" || item.innerText === "To Do"
+    );
+
+    if (doneButton.innerHTML === "Done") {
+      doneButton.innerHTML = "To Do";
+    } else {
+      doneButton.innerHTML = "Done";
+    }
+  });
+
+  localStorage.setItem("todos", JSON.stringify(todos));
+});
+
+let removeAllButton = document.createElement("button");
+removeAllButton.append("Remove All");
+
+removeAllButton.addEventListener("click", () => {
+  let allSelectedItems = document.querySelectorAll(".li-active");
+  let selectedItemsArr = [...allSelectedItems];
+
+  selectedItemsArr.forEach((item) => {
+    let filteredTodos = todos.filter((todo) => todo.id !== item.id);
+    todos = filteredTodos;
+    item.remove();
+  });
+
+  localStorage.setItem("todos", JSON.stringify(todos));
+});
+
+container.append(doneAllButton);
+container.append(removeAllButton);
